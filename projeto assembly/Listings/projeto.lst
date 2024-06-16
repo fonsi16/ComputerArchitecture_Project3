@@ -1,0 +1,363 @@
+A51 MACRO ASSEMBLER  PROJETO                                                              05/23/2024 12:34:12 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\projeto.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE projeto.a51 SET(SMALL) DEBUG PRINT(.\Listings\projeto.lst) OBJECT(.\Obj
+                      ects\projeto.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;Nota: Timer 0 - modo 1(16bits)
+                       2     ;               1 contagem = 1 microseg, 10000 contagens = 10000 microseg = 10 ms
+                       3     ;               65536 - 10000 = 55536(D8F0H)
+                       4     
+                       5     ;R0-> contador para centesimas de segundo(0.01s)
+                       6     ;R1-> contador para decimas de segundo(0.1s)
+                       7     ;R2-> segundos(1s)
+                       8     ;R3->0(Modo escolhe pergunta)/1(modo mostra pergunta)
+                       9     ;R4->Resposta
+                      10     ;R5->0(Mostra segundos restantes)/1(mostra resposta)
+                      11     ;R6->Contar 1 segundo para o modo mostra pergunta
+                      12     
+                      13     ;Definição de constantes 
+  00D8                14     TempoH0                 EQU 0xD8        ;65536 - 10000 = 55536(D8F0H)
+  00F0                15     TempoL0                 EQU 0xF0
+  000A                16     contaMsegundos  EQU 0x0A        ;Numero de contagens de 10 ms para contar 0,1s (10 contagen
+                             s)
+  0005                17     maximoSegundos  EQU 0X05        ;Número máximo de segundos a serem contados (5 segundos)
+                      18     
+  0090                19     displayD1               EQU     P1
+  00A0                20     displayD2               EQU P2
+                      21     
+  00B4                22     BA                              EQU P3.4
+  00B5                23     BB                              EQU P3.5
+  00B6                24     BC                              EQU P3.6
+  00B7                25     BD                              EQU P3.7
+                      26             
+  003F                27     tracoponto                      EQU 0x3F ; -.
+                      28             
+                      29     
+----                  30     CSEG AT 0300H
+0300 12193024         31     segmentosD1:                    DB      0x12, 0x19, 0x30, 0x24, 0x79, 0x40                 
+                                                          ; 5., 4., 3., 2., 1., 0.
+0304 7940                    
+                      32     
+----                  33     CSEG AT 0310H
+0310 C09080F8         34     segmentosD2Segundos:    DB      0xC0, 0x90, 0x80, 0xF8, 0x82, 0x92, 0x99, 0xB0, 0xA4, 0xF9 
+                               ; 0, 9, 8, 7, 6, 5, 4, 3, 2, 1
+0314 829299B0                
+0318 A4F9                    
+                      35     
+----                  36     CSEG AT 0320H
+0320 8883C6A1         37     segmentosD2Opcao:               DB 0x88, 0x83, 0xC6, 0xA1, 0xBF                            
+                                                                  ; A, b, C, d, -
+0324 BF                      
+                      38     
+                      39             
+----                  40     CSEG AT 0000H
+0000 804E             41             JMP Inicio
+                      42             
+                      43     ;interrupcao externa 0(P3.2 -> B1)
+----                  44     CSEG AT 0003H
+0003 01B3             45             JMP InterrupcaoExt0
+                      46             
+                      47     ;interrupcao timer 0 (de 0,01s a 0,01s)
+----                  48     CSEG AT 000BH
+000B 01DE             49             JMP InterrupcaoTemp0
+A51 MACRO ASSEMBLER  PROJETO                                                              05/23/2024 12:34:12 PAGE     2
+
+                      50             
+                      51     ;interrupcao externa 0(P3.3 -> BA & BB & BC & BD)       
+----                  52     CSEG AT 0013H
+0013 01BE             53             JMP InterrupcaoExt1
+                      54     
+----                  55     CSEG AT 0050H
+0050                  56     Inicio: 
+0050 1175             57             CALL inicializacoes                                     ;chama a rotina de iniciali
+                             zacoes
+0052 1196             58             CALL atualizadisplay1                           ;mostra inicialmente no display1 o 
+                             valor 5.
+0054 119E             59             CALL atualizadisplay2                           ;mostra inicialmente no display2 o 
+                             valor 0
+0056 1184             60             CALL ativaInterrupcoes                          ;rotina para configurar as interrup
+                             coes Ext0 e Timer0
+0058 1188             61             CALL configuraTemporizador                      ;rotina para ativar o temporarizador
+                      62     
+                      63     ;Programa principal
+005A                  64     cicloTemporarizador: 
+005A BB0006           65             CJNE R3, #0, cicloMostraResposta        ;caso R3 seja diferente de 0 irá para o mod
+                             o de mostrar resposta
+005D 1196             66             CALL atualizadisplay1                           ;atualiza o display1 consoante o te
+                             mpo decorrido
+005F 119E             67             CALL atualizadisplay2                           ;atualiza o display2 consoante o te
+                             mpo decorrido
+0061 80F7             68             JMP cicloTemporarizador
+                      69     
+0063                  70     cicloMostraResposta:
+0063 BB01EA           71             CJNE R3, #1, Inicio                                     ;caso R3 seja diferente de 
+                             1 quer dizer que B1 foi pressionada e é para voltar ao início
+0066 BD0006           72             CJNE R5, #0, mostraRespostaDisplay      ;caso R5 seja diferente de 0 salta para o m
+                             ostraRespostaDisplay
+0069 1196             73             CALL atualizadisplay1                           ;mostra no display1 os segundos que
+                              faltavam até chegar a 0
+006B 119E             74             CALL atualizadisplay2                           ;mostra no display2 os milésimos de
+                              segundo que faltavam até chegar a 0
+006D 80F4             75             JMP     cicloMostraResposta     
+006F                  76     mostraRespostaDisplay:
+006F 11A6             77             CALL respostadisplay1                           ;mostra no display1 um -.
+0071 11AB             78             CALL respostadisplay2                           ;mostra no display2 a opção que o u
+                             tilizador escolheu
+0073 80EE             79             JMP cicloMostraResposta
+                      80     
+                      81     ;rotina inicializacoes
+0075                  82     inicializacoes:
+0075 7800             83             MOV R0, #0                                                      ;contador das cente
+                             simas de segundo = 0
+0077 7900             84             MOV R1, #0                                                      ;contador das decim
+                             as de segundo = 0
+0079 7A00             85             MOV R2, #0                                                      ;contador dos segun
+                             dos = 0
+007B 7B00             86             MOV R3, #0                                                      ;modo => 0(escolhe 
+                             pergunta)
+007D 7C00             87             MOV R4, #0                                                      ;opção => 0
+007F 7D00             88             MOV R5, #0                                                      ;mostra resposta/ p
+                             ergunta =>0
+0081 7E00             89             MOV R6, #0                                                      ;contador dos segun
+                             dos para o modo de ver a resposta = 0
+0083 22               90             RET
+                      91             
+                      92     ;rotina ativaInterrupcoes
+0084                  93     ativaInterrupcoes:
+0084 75A883           94             MOV IE, #10000011b                                      ;EA=1, ET1=0, EX1=0, ET0=1 
+                             e EX0=1 -> IE=10000011
+0087 22               95             RET
+                      96     
+A51 MACRO ASSEMBLER  PROJETO                                                              05/23/2024 12:34:12 PAGE     3
+
+                      97     
+0088                  98     configuraTemporizador:
+0088 758901           99             MOV TMOD, #0x01
+008B 758AF0          100             MOV TL0, #TempoL0                                       ;valor do byte menos signif
+                             icativo
+008E 758CD8          101             MOV TH0, #TempoH0                                       ;valor do byte mais signifi
+                             cativo       
+0091 C28C            102             CLR TR0                                                 ;garante que o Timer 0 este
+                             ja desligado inicialmente
+0093 D288            103             SETB IT0                                                ;gonfigura a interrupção ex
+                             terna 0 para ser ativada na descida (falling edge)
+0095 22              104             RET                                                     ;retorna da sub-rotina
+                     105     
+0096                 106     atualizadisplay1:
+0096 900300          107             MOV DPTR, #segmentosD1                          ;move para o dptr o endereço da tab
+                             ela dos segmentosD1
+0099 EA              108             MOV A, R2                                                       ;move o conteúdo R2
+                              para o A. R2 contém o índice dos segundos do segmento a ser exibido
+009A 93              109             MOVC A, @A+DPTR                                         ;usa o conteúdo de A como u
+                             m índice para acder à tabela de segmentos. MOVC lê um byte da memória de programa no endere
+                             ço (DPTR + A) e move para o acumulador
+009B F590            110             MOV displayD1, A                                        ;move o valor do acumulador
+                              para displayD1, atualizando o display 1
+009D 22              111             RET
+                     112     
+009E                 113     atualizadisplay2:
+009E 900310          114             MOV DPTR, #segmentosD2Segundos          ;guarda no dptr o endereço da tabela dos se
+                             gmentosD2 para os segundos
+00A1 E9              115             MOV A, R1                                                       ;move o conteúdo R1
+                              para o A. R1 contém o índice dos milésimos de segundo do segmento a ser exibido
+00A2 93              116             MOVC A, @A+DPTR                                         ;usa o conteúdo de A como u
+                             m índice para acder à tabela de segmentos. MOVC lê um byte da memória de programa no endere
+                             ço (DPTR + A) e move para o acumulador.
+00A3 F5A0            117             MOV displayD2, A                                        ;move o valor do acumulador
+                              para displayD2, atualizando o display 2     
+00A5 22              118             RET     
+                     119                             
+00A6                 120     respostadisplay1:
+00A6 743F            121             MOV A, #tracoponto                                      ;move o valor constante 'tr
+                             acoponto' para o acumulador (A)
+00A8 F590            122             MOV displayD1, A                                        ;move o valor do acumulador
+                              para displayD1, atualizando o display 1
+00AA 22              123             RET
+                     124     
+00AB                 125     respostadisplay2:
+00AB 900320          126             MOV DPTR, #segmentosD2Opcao                     ;guarda no dptr o endereço da tabel
+                             a dos segmentosD2 para as opções
+00AE EC              127             MOV A, R4                                                       ;move o conteúdo R4
+                              para o A. R4 contém o índice da opção do segmento a ser exibido
+00AF 93              128             MOVC A, @A+DPTR                                         ;usa o conteúdo de A como u
+                             m índice para acder à tabela de segmentos. MOVC lê um byte da memória de programa no endere
+                             ço (DPTR + A) e move para o acumulador
+00B0 F5A0            129             MOV displayD2, A                                        ;move o valor do acumulador
+                              para displayD2, atualizando o display 2
+00B2 22              130             RET
+                     131             
+00B3                 132     InterrupcaoExt0:
+00B3 D28C            133             SETB TR0                                                        ;timer 0 começa a c
+                             ontar o tempo
+00B5 C2A8            134             CLR EX0                                                         ;desativa interrupc
+                             ao externa 0
+00B7 D2AA            135             SETB EX1                                                        ;ativa interrupcao 
+                             externa 1
+00B9 7800            136             MOV R0, #0                                                      ;reseta o contador 
+                             dos microsegundos 
+00BB 7B00            137             MOV R3, #0                                                      ;reseta o valor do 
+A51 MACRO ASSEMBLER  PROJETO                                                              05/23/2024 12:34:12 PAGE     4
+
+                             modo pra zero(modo de escolha da pergunta onde decrece os 5 segundos)
+00BD 32              138             RETI
+                     139             
+00BE                 140     InterrupcaoExt1:
+00BE 7800            141             MOV R0, #0                                                      ;reset do contador 
+                             dos 0,01s
+00C0 7B01            142             MOV R3, #1                                                      ;Mete o registo 3 a
+                              1(modo onde mostra a ressposta do utilizador)
+00C2 D2A8            143             SETB EX0                                                        ;ativa interrupcao 
+                             externa 0
+00C4 C2AA            144             CLR EX1                                                         ;desativa a interru
+                             pção externa 1
+00C6 20B404          145             JB BA, verificaB                                        ;verifica se o Botão BA não
+                              está pressionado, se não estiver salta para verificaB
+00C9 7C00            146             MOV R4, #0                                                      ;caso a opção escol
+                             hida seja A guarda o valor 0 em R4 para incrementar depois no indice da tabela de segmento
+00CB 8010            147             JMP fimExt1                                                     ;sai da interrupção
+00CD                 148     verificaB:
+00CD 20B504          149             JB BB, verificaC                                        ;verifica se o Botão BB não
+                              está pressionado, se não estiver salta para verificaC
+00D0 7C01            150             MOV R4, #1                                                      ;caso a opção escol
+                             hida seja B guarda o valor 1 em R4 para incrementar depois no indice da tabela de segmento
+00D2 8009            151             JMP fimExt1                                                     ;sai da interrupção
+00D4                 152     verificaC:
+00D4 20B604          153             JB BC, verificaD                                        ;verifica se o Botão BC não
+                              está pressionado, se não estiver salta para verificaD
+00D7 7C02            154             MOV R4, #2                                                      ;caso a opção escol
+                             hida seja C guarda o valor 2 em R4 para incrementar depois no indice da tabela de segmento
+00D9 8002            155             JMP fimExt1                                                     ;sai da interrupção
+00DB                 156     verificaD:
+00DB 7C03            157             MOV R4, #3                                                      ;caso a opção escol
+                             hida seja D guarda o valor 3 em R4 para incrementar depois no indice da tabela de segmento
+00DD                 158     fimExt1:
+00DD 32              159             RETI
+                     160     
+00DE                 161     InterrupcaoTemp0:
+00DE C289            162             CLR IE0                                                         ;limpa flag se P3.2
+                              foi pressionado (ruido botao)
+00E0 758AF0          163             MOV TL0, #TempoL0                                       ;TL0=0xF0
+00E3 758CD8          164             MOV TH0, #TempoH0                                       ;TH0=0xD8
+00E6 08              165             INC R0                                                          ;incrementa o conta
+                             dor das centesimas de segundo
+00E7 B80A2D          166             CJNE R0, #contaMsegundos, fimI          ;caso o valor das centesimas de segundo sej
+                             a igual a 10 temos que incrementar o contador das decimas de segundo se não acaba e salta da interrupção
+00EA BB0019          167             CJNE R3, #0, tempoResposta                      ;caso o valor do modo seja diferent
+                             e de 0 queremos que o contador conte de 1 em segundo
+00ED                 168     verificaMsegundo:
+00ED 09              169             INC R1                                                          ;incrementa o valor
+                              das decimas de segundo
+00EE 7800            170             MOV R0, #0                                                      ;reseta o valor das
+                              centesimas de segundo
+00F0 B90101          171             CJNE R1, #1, verificaResetSeg           ;caso aumente uma decima de segundo e é igu
+                             al 1 (5.0 -> 4.9) o contador dos segundos tem de incrementar, 
+00F3 0A              172             INC R2                                                          ;incrementa o valor
+                              das decimas de segundo
+00F4                 173     verificaResetSeg:
+00F4 B90A20          174             CJNE R1, #contaMsegundos, fimI          ;verica se o contador das decimas de segund
+                             o chegou a 10 para voltar ao início se não sái da exceção
+00F7 7900            175             MOV R1, #0                                                      ;reseta o valor das
+                              decimas de segundo
+00F9 BA051B          176             CJNE R2, #maximoSegundos, fimI          ;caso ja tenho chegado aos 0 segundos
+00FC 7B01            177             MOV R3, #1                                                      ;r3 fica com o valo
+                             r 1 para mostrar a resposta
+00FE 7C04            178             MOV R4, #4                                                      ;r4 fica com o valo
+                             r 4 para mostrar em vez de opção um traço -
+0100 D2A8            179             SETB EX0                                                        ;ativa interrupcao 
+A51 MACRO ASSEMBLER  PROJETO                                                              05/23/2024 12:34:12 PAGE     5
+
+                             externa 0
+0102 C2AA            180             CLR EX1                                                         ;desativa interrupc
+                             ao externa 1
+0104 8011            181             JMP fimI
+                     182             
+0106                 183     tempoResposta:
+0106 0E              184             INC R6                                                          ;incrementa o valor
+                              do contador das decimas de segundo
+0107 7800            185             MOV R0, #0                                                      ;reseta o valor do 
+                             contador de centesimas
+0109 BE0A0B          186             CJNE R6, #contaMsegundos, fimI          ;caso o valor do contador das decimas de se
+                             gundo seja igual a 10 incrementa um segundo se não acaba a interrupção
+010C 7E00            187             MOV R6, #0                                                      ;reseta o valor do 
+                             contador das decimas de segundo
+010E BD0104          188             CJNE R5, #1, mudaPara1                          ;caso o valor de r5 não seja igual 
+                             a 1 salta
+0111 7D00            189             MOV R5, #0                                                      ;muda o valor de r5
+                              para 0(mostrar segundos restantes)
+0113 8002            190             JMP fimI
+0115                 191     mudaPara1:
+0115 7D01            192             MOV R5, #1                                                      ;muda o valor de r5
+                              para 1(mostrar opção)
+                     193             
+0117                 194     fimI:
+0117 32              195             RETI
+                     196             
+                     197     END
+A51 MACRO ASSEMBLER  PROJETO                                                              05/23/2024 12:34:12 PAGE     6
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                T Y P E  V A L U E   ATTRIBUTES
+
+ATIVAINTERRUPCOES . .  C ADDR   0084H   A   
+ATUALIZADISPLAY1. . .  C ADDR   0096H   A   
+ATUALIZADISPLAY2. . .  C ADDR   009EH   A   
+BA. . . . . . . . . .  B ADDR   00B0H.4 A   
+BB. . . . . . . . . .  B ADDR   00B0H.5 A   
+BC. . . . . . . . . .  B ADDR   00B0H.6 A   
+BD. . . . . . . . . .  B ADDR   00B0H.7 A   
+CICLOMOSTRARESPOSTA .  C ADDR   0063H   A   
+CICLOTEMPORARIZADOR .  C ADDR   005AH   A   
+CONFIGURATEMPORIZADOR  C ADDR   0088H   A   
+CONTAMSEGUNDOS. . . .  N NUMB   000AH   A   
+DISPLAYD1 . . . . . .  D ADDR   0090H   A   
+DISPLAYD2 . . . . . .  D ADDR   00A0H   A   
+EX0 . . . . . . . . .  B ADDR   00A8H.0 A   
+EX1 . . . . . . . . .  B ADDR   00A8H.2 A   
+FIMEXT1 . . . . . . .  C ADDR   00DDH   A   
+FIMI. . . . . . . . .  C ADDR   0117H   A   
+IE. . . . . . . . . .  D ADDR   00A8H   A   
+IE0 . . . . . . . . .  B ADDR   0088H.1 A   
+INICIALIZACOES. . . .  C ADDR   0075H   A   
+INICIO. . . . . . . .  C ADDR   0050H   A   
+INTERRUPCAOEXT0 . . .  C ADDR   00B3H   A   
+INTERRUPCAOEXT1 . . .  C ADDR   00BEH   A   
+INTERRUPCAOTEMP0. . .  C ADDR   00DEH   A   
+IT0 . . . . . . . . .  B ADDR   0088H.0 A   
+MAXIMOSEGUNDOS. . . .  N NUMB   0005H   A   
+MOSTRARESPOSTADISPLAY  C ADDR   006FH   A   
+MUDAPARA1 . . . . . .  C ADDR   0115H   A   
+P1. . . . . . . . . .  D ADDR   0090H   A   
+P2. . . . . . . . . .  D ADDR   00A0H   A   
+P3. . . . . . . . . .  D ADDR   00B0H   A   
+RESPOSTADISPLAY1. . .  C ADDR   00A6H   A   
+RESPOSTADISPLAY2. . .  C ADDR   00ABH   A   
+SEGMENTOSD1 . . . . .  C ADDR   0300H   A   
+SEGMENTOSD2OPCAO. . .  C ADDR   0320H   A   
+SEGMENTOSD2SEGUNDOS .  C ADDR   0310H   A   
+TEMPOH0 . . . . . . .  N NUMB   00D8H   A   
+TEMPOL0 . . . . . . .  N NUMB   00F0H   A   
+TEMPORESPOSTA . . . .  C ADDR   0106H   A   
+TH0 . . . . . . . . .  D ADDR   008CH   A   
+TL0 . . . . . . . . .  D ADDR   008AH   A   
+TMOD. . . . . . . . .  D ADDR   0089H   A   
+TR0 . . . . . . . . .  B ADDR   0088H.4 A   
+TRACOPONTO. . . . . .  N NUMB   003FH   A   
+VERIFICAB . . . . . .  C ADDR   00CDH   A   
+VERIFICAC . . . . . .  C ADDR   00D4H   A   
+VERIFICAD . . . . . .  C ADDR   00DBH   A   
+VERIFICAMSEGUNDO. . .  C ADDR   00EDH   A   
+VERIFICARESETSEG. . .  C ADDR   00F4H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
